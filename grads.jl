@@ -73,7 +73,7 @@ function grads(s::DT{T,S}, layers::Vector{Layer{T}}, x::Vector{T}, y::Vector{T})
 		ξ, bi, refW = pop!(s)
 		W = refW[]
 		# TODO: ∂∂W is low-rank. Compute efficiently.
-		∇Wₗ = reshape((J*∂∂W(ξ, bi))', size(W))
+		∇Wₗ = reshape((J*LazyJac(ξ, bi))', size(W))
 		# TODO: ∂∂b is sparse. Compute efficiently.
 		∇bₗ = J'.*∂∂b(ξ, bi)
 		push!(∇W,∇Wₗ)
