@@ -57,7 +57,7 @@ function forward!(s::DT{T,S}, ls::Vector{Layer{T}}, x::Vector{T}, y::Vector{T}) 
 	ŷ = copy(x)
 	for l in ls
 		ỹ = muladd(l.W',ŷ,l.b)
-		bi = ifelse(l.activation, ỹ .> 0, ones(length(ỹ)) |> BitVector)
+		bi = !l.activation .| (ỹ .> 0)
 		push!(s, (ξ=ŷ,bi=bi,W=Ref(l.W)))
 		ŷ = ifelse(l.activation, relu.(ỹ), ỹ)
 	end
