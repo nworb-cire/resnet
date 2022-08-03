@@ -64,9 +64,10 @@ function forward!(s::DT{T,S}, ls::Vector{Layer{T}}, x::Vector{T}) where {S,T}
 	ŷ
 end
 
-function grads(s::DT{T,S}, layers::Vector{Layer{T}}, x::Vector{T}, y::Vector{T}) where {S,T}
+function grads(s::DT{T,S}, layers::Vector{Layer{T}}, ŷ::Vector{T}, y::Vector{T}) where {S,T}
     isempty(s) && error("Stack is empty; did you run the forward pass?")
-	J = ∂C∂(layers(x), y)
+    ŷ, y
+	J = ∂C∂(ŷ, y)
 	∇W = Matrix{T}[]
 	∇b = Vector{T}[]
 	while !isempty(s)
