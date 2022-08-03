@@ -52,16 +52,16 @@ DT{T} = Deque{@NamedTuple{
 	W::Base.RefValue{Matrix{S}}
 }} where {T,S}
 
-function forward!(s::DT{T,S}, ls::Vector{Layer{T}}, x::Vector{T}, y::Vector{T}) where {S,T}
+function forward!(s::DT{T,S}, ls::Vector{Layer{T}}, x::Vector{T}) where {S,T}
     empty!(s)
-	ŷ = copy(x)
+	ŷ = x
 	for l in ls
 		ỹ = muladd(l.W',ŷ,l.b)
 		bi = !l.activation .| (ỹ .> 0)
 		push!(s, (ξ=ŷ,bi=bi,W=Ref(l.W)))
 		ŷ = ifelse(l.activation, relu.(ỹ), ỹ)
 	end
-	C(ŷ, y)
+	ŷ
 end
 
 function grads(s::DT{T,S}, layers::Vector{Layer{T}}, x::Vector{T}, y::Vector{T}) where {S,T}

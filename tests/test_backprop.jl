@@ -40,12 +40,12 @@ using Zygote
         (∇1, ∇b1, ∇2, ∇b2)
     end
 
-    @test forward!(DT{Float32,Float32}(), test_layers, x, y) ≈ C(test_layers(x), y)
+    @test forward!(DT{Float32,Float32}(), test_layers, x) ≈ test_layers(x)
 
     ∇′ = _grads(test_layers, x, y)
     d = DT{Float32,Float32}()
     empty!(d)
-    ŷ = forward!(d, test_layers, x, y)
+    ŷ = forward!(d, test_layers, x)
     ((∇3, ∇4), (∇1, ∇2)) = @test_nowarn grads(d, test_layers, x, y)
     empty!(d)
 
