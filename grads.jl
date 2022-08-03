@@ -1,6 +1,5 @@
 include("lazyjacobian.jl")
 using DataStructures: Deque
-using Flux: update!
 
 # Weight jacobians
 function ∂∂W(ξ::Vector{T}, bi::BitVector) where T
