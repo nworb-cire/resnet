@@ -1,4 +1,6 @@
 include("grads.jl")
+using Flux.Optimise: apply!
+using Statistics: mean
 
 DT{T} = Deque{@NamedTuple{
 	ξ::Vector{T},
@@ -50,12 +52,20 @@ function reverse_opt!(stacks::Vector{DT{T,S}}, layers::Vector{Layer{T}}, ŷs::V
             J*LazyJac(ξ, bi)
             for (J, (ξ, bi, _)) in zip(Js, vals)
         ])
-        update!(optW, l.W, ∇Wₗ')
+        l.W .-= apply!(optW, l.W, ∇Wₗ')
         ∇bₗ = mean([  # TODO: Combine for loops
             J'.*∂∂b(ξ, bi)
             for (J, (ξ, bi, _)) in zip(Js, vals)
         ])
-        update!(optb, l.b, ∇bₗ)
+        l.b .-= apply!(optb, l.b, ∇bₗ)
+
+        # ∇Wₗ = zero(l.W')
+        # ∇bₗ = zero(l.b)
+        # @inbounds @fastmath for (J, (ξ, bi, _)) in zip(Js, vals)
+        #     ∇Wₗ .+= J*LazyJac(ξ, bi)
+        #     ∇bₗ .+= J'.*∂∂b(ξ, bi)
+        # end
+
 		if !isempty(first(stacks))
 			Js = [  # Skip jacobian computation on last layer
                 J*∂∂ξ(refW[], bi)
