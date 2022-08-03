@@ -86,3 +86,39 @@ function grads(s::DT{T,S}, layers::Vector{Layer{T}}, ŷ::Vector{T}, y::Vector{T
 	return zip(∇W, ∇b)
 end
 reverse! = grads
+
+function reverse_opt!(stacks::Vector{DT{T,S}}, layers::Vector{Layer{T}}, ŷs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts::Vector) where {S,T}
+    any(isempty.(stacks)) && error("Stack is empty; did you run the forward pass?")
+    Js = [∂C∂(ŷ, y) for (ŷ, y) in zip(ŷs, ys)]
+    for l in reverse(layers)
+        vals = pop!.(stacks)
+        ∇Wₗ = mean([
+            J*LazyJac(ξ, bi)
+            for (J, (ξ, bi, _)) in zip(Js, vals)
+        ])
+        η = 1f-2  # TODO: USE OPT
+        ∇bₗ = mean([  # TODO: Combine for loops
+            J'.*∂∂b(ξ, bi)
+            for (J, (ξ, bi, _)) in zip(Js, vals)
+        ])
+        l.W .-= η*∇Wₗ'
+        l.b .-= η*∇bₗ
+		if !isempty(first(stacks))
+			Js = [  # Skip jacobian computation on last layer
+                J*∂∂ξ(refW[], bi)
+                for (J, (_, bi, refW)) in zip(Js, vals)
+            ]
+		end
+    end
+end
+
+function train!(layers, xs, ys)
+    ŷs = similar(ys)
+    n = length(xs)
+    ds = [DT{Float32,Float32}() for _ in 1:n]
+    for i in 1:n
+        ŷs[i] = forward!(ds[i], layers, xs[i])
+    end
+    reverse_opt!(ds, layers, ŷs, ys, [])
+    @show mean(C(layers(x), y) for (x,y) in zip(xs,ys))
+end
