@@ -70,3 +70,14 @@ using Zygote
     end[1]
     @test ∇4 ≈ ∇′[4]
 end;
+
+@testset "reverse opt" begin
+    N = 100
+    xs = [randn(Float32, in_dim) for _ in 1:100]
+    ys = [randn(Float32, out_dim) for _ in 1:100]
+    opts = [(ADAM(), ADAM()) for l in test_layers]
+    baseline_loss = mean(C(test_layers(x), y) for (x,y) in zip(xs,ys))
+    for _ in 1:100 train!(test_layers, xs, ys, opts) end
+    final_loss = mean(C(test_layers(x), y) for (x,y) in zip(xs,ys))
+    @test final_loss < baseline_loss
+end;
