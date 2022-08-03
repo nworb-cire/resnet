@@ -14,7 +14,7 @@ Base.size(J::LazyJac) = (length(J.bi), length(J.bi)*length(J.x))
 function Base.:*(A::LinearAlgebra.Adjoint{T, Vector{T}}, J::LazyJac{T}) where T
     z = zero(J.x)
     out = Matrix{T}(undef, (length(J.bi), length(J.x)))
-    for i = 1:length(J.bi)
+    @inbounds for i = 1:length(J.bi)
         out[i,:] .= ifelse(J.bi[i], A[i]*J.x, z)
     end
     return out
