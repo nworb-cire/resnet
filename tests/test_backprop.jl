@@ -46,7 +46,7 @@ using Zygote
     d = DT{Float32,Float32}()
     empty!(d)
     ŷ = forward!(d, test_layers, x)
-    ((∇3, ∇4), (∇1, ∇2)) = @test_nowarn grads(d, test_layers, x, y)
+    ((∇3, ∇4), (∇1, ∇2)) = @test_nowarn grads(d, test_layers, ŷ, y)
     empty!(d)
 
     @test ∇1 ≈ ∇′[1]
