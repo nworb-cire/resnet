@@ -1,5 +1,7 @@
 include("../layers.jl")
 include("../grads.jl")
+include("../training.jl")
+using Flux: ADAM
 in_dim = 3
 hidden_dim = 4
 out_dim = 2
