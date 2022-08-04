@@ -5,45 +5,67 @@ using Statistics: mean
 DT{T} = Deque{@NamedTuple{
 	ξ::Vector{T},
 	bi::BitVector,
-	W::Base.RefValue{Matrix{S}}
-}} where {T,S}
+	l::Base.RefValue{<:AbstractNetworkLayer{T}}
+}} where {T}
 
-function forward!(s::DT{T,S}, ls::Vector{Layer{T}}, x::Vector{T}) where {S,T}
+function forward!(s::DT{T}, l::Layer{T}, ŷ::Vector{T}) where T
+    ỹ = muladd(l.W',ŷ,l.b)
+    bi = !l.activation .| (ỹ .> 0)
+    push!(s, (ξ=ŷ,bi=bi,l=Ref(l)))
+    ŷ = ifelse(l.activation, relu.(ỹ), ỹ)
+end
+function forward!(s::DT{T}, l::ResidualLayer{T}, ŷ) where T
+		ỹ = muladd(l.W',ŷ,l.b)
+		bi = !l.activation .| (ỹ .> 0)
+		push!(s, (ξ=ŷ,bi=bi,l=Ref(l)))
+		ỹ = ifelse(l.activation, relu.(ỹ), ỹ)
+        ŷ = l.eta*ŷ + ỹ
+end
+function forward!(s::DT{T}, ls::Vector{<:AbstractNetworkLayer{T}}, x::Vector{T}) where T
     empty!(s)
 	ŷ = x
 	for l in ls
-		ỹ = muladd(l.W',ŷ,l.b)
-		bi = !l.activation .| (ỹ .> 0)
-		push!(s, (ξ=ŷ,bi=bi,W=Ref(l.W)))
-		ŷ = ifelse(l.activation, relu.(ỹ), ỹ)
+        ŷ = forward!(s, l, ŷ)
 	end
 	ŷ
 end
 
-function grads(s::DT{T,S}, layers::Vector{Layer{T}}, ŷ::Vector{T}, y::Vector{T}) where {S,T}
+function grads(J::LinearAlgebra.Adjoint{T, Vector{T}}, ∇W, ∇b, ξ::Vector{T}, bi::BitVector, l::Layer{T}, do_jac_computation::Bool) where T
+    ∇Wₗ = reshape((J*LazyJac(ξ, bi))', size(l.W))
+    push!(∇W,∇Wₗ)
+    ∇bₗ = J'.*∂∂b(ξ, bi)
+    push!(∇b,∇bₗ)
+
+    if do_jac_computation
+        J = J*∂∂ξ(l.W, bi)  # Skip jacobian computation on last layer
+    end
+    J
+end
+function grads(J::LinearAlgebra.Adjoint{T, Vector{T}}, ∇W, ∇b, ξ::Vector{T}, bi::BitVector, l::ResidualLayer{T}, do_jac_computation::Bool) where T 
+    ∇Wₗ = reshape((J*LazyJac(ξ, bi))', size(l.W))
+    push!(∇W,∇Wₗ)
+    ∇bₗ = J'.*∂∂b(ξ, bi)
+    push!(∇b,∇bₗ)
+
+    if do_jac_computation
+        J = J*∂∂ξ(l.W, l.eta, bi)  # Skip jacobian computation on last layer
+    end
+    J
+end
+function reverse!(s::DT{T}, layers::Vector{<:AbstractNetworkLayer{T}}, ŷ::Vector{T}, y::Vector{T}) where T
     isempty(s) && error("Stack is empty; did you run the forward pass?")
-    ŷ, y
 	J = ∂C∂(ŷ, y)
 	∇W = Matrix{T}[]
 	∇b = Vector{T}[]
 	while !isempty(s)
-		ξ, bi, refW = pop!(s)
-		W = refW[]
-		# TODO: ∂∂W is low-rank. Compute efficiently.
-		∇Wₗ = reshape((J*LazyJac(ξ, bi))', size(W))
-		# TODO: ∂∂b is sparse. Compute efficiently.
-		∇bₗ = J'.*∂∂b(ξ, bi)
-		push!(∇W,∇Wₗ)
-		push!(∇b,∇bₗ)
-		if !isempty(s)
-			J = J*∂∂ξ(W, bi)  # Skip jacobian computation on last layer
-		end
+        ξ, bi, refl = pop!(s)
+        l = refl[]
+		J = grads(J, ∇W, ∇b, ξ, bi, l, !isempty(s))
 	end
 	return zip(∇W, ∇b)
 end
-reverse! = grads
 
-function reverse_opt!(stacks::Vector{DT{T,S}}, layers::Vector{Layer{T}}, ŷs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts::Vector{Tuple{O,O}}) where {S,T,O}
+function reverse_opt!(stacks::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLayer{T}}, ŷs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts::Vector{Tuple{O,O}}) where {T,O}
     any(isempty.(stacks)) && error("Stack is empty; did you run the forward pass?")
     Js = [∂C∂(ŷ, y) for (ŷ, y) in zip(ŷs, ys)]
     for (l, (optW,optb)) in zip(reverse(layers), reverse(opts))
@@ -68,21 +90,25 @@ function reverse_opt!(stacks::Vector{DT{T,S}}, layers::Vector{Layer{T}}, ŷs::V
 
 		if !isempty(first(stacks))
 			Js = [  # Skip jacobian computation on last layer
-                J*∂∂ξ(refW[], bi)
-                for (J, (_, bi, refW)) in zip(Js, vals)
+                J*∂∂ξ(refl[], bi)
+                for (J, (_, bi, refl)) in zip(Js, vals)
             ]
 		end
     end
 end
 
 # opts = [(ADAM(), ADAM()) for l in layers]
-function train!(layers, xs, ys, opts)
+function train_batch!(ds::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLayer{T}}, xs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts) where T
     ŷs = similar(ys)
     n = length(xs)
-    ds = [DT{Float32,Float32}() for _ in 1:n]
     for i in 1:n
         ŷs[i] = forward!(ds[i], layers, xs[i])
     end
     reverse_opt!(ds, layers, ŷs, ys, opts)
     mean(C(layers(x), y) for (x,y) in zip(xs,ys))
+end
+
+function train_batch!(layers::Vector{<:AbstractNetworkLayer{T}}, xs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts) where T
+    ds = [DT{T}() for _ in 1:length(xs)]
+    train_batch!(ds, layers, xs, ys, opts)
 end

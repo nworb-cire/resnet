@@ -16,7 +16,7 @@ function Base.:*(A::LinearAlgebra.Adjoint{T, Vector{T}}, J::LazyJac{T}) where T
     out = spzeros(length(J.x), length(J.bi))
     I = (first(p) for p in pairs(J.bi) if last(p))
     @inbounds @fastmath for i = I
-        @. out[:,i] = A[i]*J.x
+        out[:,i] .= A[i]*J.x
     end
     return out'
 end
