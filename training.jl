@@ -31,7 +31,7 @@ function forward!(s::DT{T}, ls::Vector{<:AbstractNetworkLayer{T}}, x::Vector{T})
 end
 
 function grads(J::LinearAlgebra.Adjoint{T, Vector{T}}, ∇W, ∇b, ξ::Vector{T}, bi::BitVector, l::Layer{T}, do_jac_computation::Bool) where T
-    ∇Wₗ = reshape((J*LazyJac(ξ, bi))', size(l.W))
+    ∇Wₗ = (J*LazyJac(ξ, bi))'
     push!(∇W,∇Wₗ)
     ∇bₗ = J'.*∂∂b(ξ, bi)
     push!(∇b,∇bₗ)
@@ -74,7 +74,7 @@ function reverse_opt!(stacks::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLay
             J*LazyJac(ξ, bi)
             for (J, (ξ, bi, _)) in zip(Js, vals)
         ])
-        l.W .-= apply!(optW, l.W, ∇Wₗ')
+        l.W .-= apply!(optW, l.W, ∇Wₗ)
         ∇bₗ = mean([  # TODO: Combine for loops
             J'.*∂∂b(ξ, bi)
             for (J, (ξ, bi, _)) in zip(Js, vals)
@@ -101,7 +101,7 @@ end
 function train_batch!(ds::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLayer{T}}, xs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts) where T
     ŷs = similar(ys)
     n = length(xs)
-    for i in 1:n
+    for i in 1:n  # TODO: Parallelize
         ŷs[i] = forward!(ds[i], layers, xs[i])
     end
     reverse_opt!(ds, layers, ŷs, ys, opts)

@@ -13,12 +13,19 @@ Base.size(J::LazyJac) = (length(J.bi), length(J.bi)*length(J.x))
 # end
 
 function Base.:*(A::LinearAlgebra.Adjoint{T, Vector{T}}, J::LazyJac{T}) where T
-    out = spzeros(length(J.x), length(J.bi))
-    I = (first(p) for p in pairs(J.bi) if last(p))
-    @inbounds @fastmath for i = I
-        out[:,i] .= A[i]*J.x
-    end
-    return out'
+    s = sum(J.bi)
+    m = length(J.x)
+    n = length(J.bi)
+    s == 0 && return spzeros(m, n)
+
+    colptr = Vector{Int}(undef, n+1)
+    colptr[1] = 1
+    @inbounds colptr[2:end] .= 1 .+ cumsum(m*J.bi)
+    rowval = repeat(1:m, s)
+
+    return SparseMatrixCSC(
+        m, n, colptr, rowval, vec(J.x*(A[J.bi])')
+    )
 end
 
 function Base.:*(A::LinearAlgebra.Adjoint{T, Matrix{T}}, J::LazyJac{T}) where T

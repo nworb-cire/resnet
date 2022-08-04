@@ -154,7 +154,7 @@ end;
     @testset "weight gradients" begin
         @test ∂C∂(test_layers(x), y)*∂∂ξ(L2.W, _∂∂b(L2,L1(x)))*LazyJac(x, _∂∂b(L1,x)) ≈ gradient(L1.W) do W
             C(L2(relu.(muladd(W',x,L1.b))), y)
-        end[1]'
+        end[1]
         @test ∂C∂(test_layers(x), y)*LazyJac(L1(x), _∂∂b(L2,L1(x))) ≈ gradient(L2.W) do W
             ŷ = muladd(W',L1(x),L2.b)
             if L2.activation
@@ -162,7 +162,7 @@ end;
             else
                 C(ŷ, y)
             end
-        end[1]'
+        end[1]
     end
     
     @testset "bias gradients" begin
@@ -274,11 +274,11 @@ end;
     @testset "weight gradients" begin
         @test ∂C∂(test_residual_network(x), y)*∂∂ξ(L2.W, _∂∂b(L2,R1(L1(x))))*∂∂ξ(R1.W, R1.eta, _∂∂b(R1,L1(x)))*LazyJac(x, _∂∂b(L1,x)) ≈ gradient(L1.W) do W
             C(L2(R1(relu.(muladd(W',x,L1.b)))), y)
-        end[1]'
+        end[1]
         @test ∂C∂(test_residual_network(x), y)*∂∂ξ(L2.W, _∂∂b(L2,R1(L1(x))))*LazyJac(L1(x), _∂∂b(R1,L1(x))) ≈ gradient(R1.W) do W
             ŷ = L1(x)
             C(L2(R1.eta*ŷ + relu.(muladd(W',ŷ,R1.b))), y)
-        end[1]'
+        end[1]
     end
     
     @testset "bias gradients" begin

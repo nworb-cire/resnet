@@ -55,8 +55,8 @@ using Zygote
     ((∇3, ∇4), (∇1, ∇2)) = @test_nowarn reverse!(d, test_layers, ŷ, y)
     empty!(d)
 
-    @test ∇1 ≈ ∇′[1]
-    @test ∇1 ≈ gradient(L1.W) do W
+    @test ∇1' ≈ ∇′[1]
+    @test ∇1' ≈ gradient(L1.W) do W
         ŷ = muladd(W',x,L1.b)
         if L1.activation
             C(L2(relu.(ŷ)), y)
@@ -65,8 +65,8 @@ using Zygote
         end
     end[1]
     @test ∇2 ≈ ∇′[2]
-    @test ∇3 ≈ ∇′[3]
-    @test ∇3 ≈ gradient(L2.W) do W
+    @test ∇3' ≈ ∇′[3]
+    @test ∇3' ≈ gradient(L2.W) do W
         ŷ = muladd(W',L1(x),L2.b)
         if L2.activation
             C(relu.(ŷ), y)
@@ -128,8 +128,8 @@ end;
     ((∇5, ∇6), (∇3, ∇4), (∇1, ∇2)) = @test_nowarn reverse!(d, test_residual_network, ŷ, y)
     empty!(d)
 
-    @test ∇1 ≈ ∇′[1]
-    @test ∇1 ≈ gradient(L1.W) do W
+    @test ∇1' ≈ ∇′[1]
+    @test ∇1' ≈ gradient(L1.W) do W
         ŷ = muladd(W',x,L1.b)
         if L1.activation
             C(L2(R1(relu.(ŷ))), y)
@@ -138,14 +138,14 @@ end;
         end
     end[1]
     @test ∇2 ≈ ∇′[2]
-    @test ∇3 ≈ ∇′[3]
-    @test ∇3 ≈ gradient(R1.W) do W
+    @test ∇3' ≈ ∇′[3]
+    @test ∇3' ≈ gradient(R1.W) do W
         ŷ = L1(x)
         C(L2(R1.eta*ŷ + relu.(muladd(W',ŷ,R1.b))), y)
     end[1]
     @test ∇4 ≈ ∇′[4]
-    @test ∇5 ≈ ∇′[5]
-    @test ∇5 ≈ gradient(L2.W) do W
+    @test ∇5' ≈ ∇′[5]
+    @test ∇5' ≈ gradient(L2.W) do W
         ŷ = muladd(W',R1(L1(x)),L2.b)
         if L2.activation
             C(relu.(ŷ), y)
