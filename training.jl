@@ -1,12 +1,15 @@
 include("grads.jl")
 using Flux.Optimise: apply!
 using Statistics: mean
+using LinearAlgebra: norm
 
-DT{T} = Deque{@NamedTuple{
-	ξ::Vector{T},
-	bi::BitVector,
-	l::Base.RefValue{<:AbstractNetworkLayer{T}}
-}} where {T}
+DT{T} = Deque{
+    NamedTuple{(:ξ, :bi, :l), Tuple{
+        Vector{T}, 
+        BitVector, 
+        Base.RefValue{<:AbstractNetworkLayer{T}}
+    }}
+} where T
 
 function forward!(s::DT{T}, l::Layer{T}, ŷ::Vector{T}) where T
     ỹ = muladd(l.W',ŷ,l.b)
@@ -65,11 +68,23 @@ function reverse!(s::DT{T}, layers::Vector{<:AbstractNetworkLayer{T}}, ŷ::Vect
 	return zip(∇W, ∇b)
 end
 
-function reverse_opt!(stacks::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLayer{T}}, ŷs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts::Vector{Tuple{O,O}}) where {T,O}
+function reverse_opt!(
+        stacks::Vector{DT{T}}, 
+        layers::Vector{<:AbstractNetworkLayer{T}}, 
+        ŷs::Vector{Vector{T}}, 
+        ys::Vector{Vector{T}}, 
+        opts::Vector{Tuple{O,O}},
+        normalize::Bool,
+    ) where {T,O}
     any(isempty.(stacks)) && error("Stack is empty; did you run the forward pass?")
     Js = [∂C∂(ŷ, y) for (ŷ, y) in zip(ŷs, ys)]
-    for (l, (optW,optb)) in zip(reverse(layers), reverse(opts))
+    @debug "Jacobian norm" norm(Js[1])
+    if normalize
+        Js ./= [norm(J) for J in Js]
+    end
+    for (i, (l, (optW,optb))) in enumerate(zip(reverse(layers), reverse(opts)))
         vals = pop!.(stacks)
+        @debug "Jacobian norms layer $(length(layers)-i+1):" J=norm(Js[1]) ∂∂ξ=norm(∂∂ξ(l, vals[1][:bi]))
         ∇Wₗ = mean([
             J*LazyJac(ξ, bi)
             for (J, (ξ, bi, _)) in zip(Js, vals)
@@ -98,17 +113,17 @@ function reverse_opt!(stacks::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLay
 end
 
 # opts = [(ADAM(), ADAM()) for l in layers]
-function train_batch!(ds::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLayer{T}}, xs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts) where T
+function train_batch!(ds::Vector{DT{T}}, layers::Vector{<:AbstractNetworkLayer{T}}, xs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts, normalize::Bool = false) where T
     ŷs = similar(ys)
     n = length(xs)
     for i in 1:n  # TODO: Parallelize
         ŷs[i] = forward!(ds[i], layers, xs[i])
     end
-    reverse_opt!(ds, layers, ŷs, ys, opts)
+    reverse_opt!(ds, layers, ŷs, ys, opts, normalize)
     mean(C(layers(x), y) for (x,y) in zip(xs,ys))
 end
 
-function train_batch!(layers::Vector{<:AbstractNetworkLayer{T}}, xs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts) where T
+function train_batch!(layers::Vector{<:AbstractNetworkLayer{T}}, xs::Vector{Vector{T}}, ys::Vector{Vector{T}}, opts, normalize::Bool = false) where T
     ds = [DT{T}() for _ in 1:length(xs)]
-    train_batch!(ds, layers, xs, ys, opts)
+    train_batch!(ds, layers, xs, ys, opts, normalize)
 end
