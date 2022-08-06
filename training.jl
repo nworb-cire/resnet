@@ -3,13 +3,19 @@ using Flux.Optimise: apply!
 using Statistics: mean
 using LinearAlgebra: norm
 
-DT{T} = Deque{
-    NamedTuple{(:ξ, :bi, :l), Tuple{
+if !@isdefined DT
+    DT{T} = Deque{
+        NamedTuple{(:ξ, :bi, :l), Tuple{
+            Vector{T}, 
         Vector{T}, 
+            Vector{T}, 
+            BitVector, 
         BitVector, 
-        Base.RefValue{<:AbstractNetworkLayer{T}}
-    }}
-} where T
+            BitVector, 
+            Base.RefValue{<:AbstractNetworkLayer{T}}
+        }}
+    } where T
+end
 
 function forward!(s::DT{T}, l::Layer{T}, ŷ::Vector{T}) where T
     ỹ = muladd(l.W',ŷ,l.b)
