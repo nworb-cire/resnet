@@ -52,7 +52,7 @@ using Zygote
     d = DT{Float32}()
     empty!(d)
     ŷ = forward!(d, test_layers, x)
-    ((∇3, ∇4), (∇1, ∇2)) = @test_nowarn reverse!(d, test_layers, ŷ, y)
+    ((∇3, ∇4), (∇1, ∇2)) = reverse!(d, test_layers, ŷ, y)
     empty!(d)
 
     @test ∇1' ≈ ∇′[1]
@@ -125,7 +125,7 @@ end;
     d = DT{Float32}()
     empty!(d)
     ŷ = forward!(d, test_residual_network, x)
-    ((∇5, ∇6), (∇3, ∇4), (∇1, ∇2)) = @test_nowarn reverse!(d, test_residual_network, ŷ, y)
+    ((∇5, ∇6), (∇3, ∇4), (∇1, ∇2)) = reverse!(d, test_residual_network, ŷ, y)
     empty!(d)
 
     @test ∇1' ≈ ∇′[1]

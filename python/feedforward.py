@@ -3,9 +3,15 @@ from torch import nn, Tensor
 from torch.nn.functional import relu
 from memory_profiler import profile
 
-in_dim = 4000
-hidden_dim = 1200
-out_dim = 221
+in_dim = 4000  # 4_000
+hidden_dim = 12000  # 12_000
+out_dim = 221  # 221
+
+
+class Residual(nn.Linear):
+    def forward(self, x) -> Tensor:
+        y = super().forward(x)
+        return y + relu(x)
 
 
 class FeedForward(nn.Module):
@@ -17,13 +23,13 @@ class FeedForward(nn.Module):
 
         self.model = nn.Sequential(
             nn.Linear(in_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
-            nn.Linear(hidden_dim, hidden_dim), nn.ReLU(),
+            Residual(hidden_dim, hidden_dim), 
+            Residual(hidden_dim, hidden_dim),
+            Residual(hidden_dim, hidden_dim),
+            Residual(hidden_dim, hidden_dim),
+            Residual(hidden_dim, hidden_dim),
+            Residual(hidden_dim, hidden_dim),
+            Residual(hidden_dim, hidden_dim),
             nn.Linear(hidden_dim, out_dim),
         )
 
@@ -32,29 +38,20 @@ class FeedForward(nn.Module):
         return x
 
 
-network = FeedForward(in_dim, hidden_dim, out_dim)
-loss_fn = torch.nn.MSELoss()
-opt = torch.optim.Adam(network.parameters())
-
-x = torch.randn(in_dim)
-y = torch.randn(out_dim)
-
+@profile
 def train_single(model, loss_fn, optimizer):
     loss = loss_fn(model(x), y)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-@profile
-def train_single_profile(model, loss_fn, optimizer):
-    train_single(model, loss_fn, optimizer)
-
-train_single_profile(network, loss_fn, opt)
+x = torch.randn(in_dim)
+y = torch.randn(out_dim)
 
 # from timeit import timeit
 # num_runs = 1000
 # print(timeit(
-#     "train_single(network, loss_fn, opt)",
+#     "train_single(nn, loss_fn, opt)",
 #     globals=globals(),
 #     number=num_runs,
 # ) / num_runs)

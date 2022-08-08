@@ -2,8 +2,8 @@ import LinearAlgebra
 using SparseArrays
 
 struct LazyJac{T<:Real}# <: AbstractMatrix
-    x::Vector{T}
-    bi::BitVector
+    x::AbstractVector{T}
+    bi::AbstractVector{Bool}
 end
 Base.size(J::LazyJac) = (length(J.bi), length(J.bi)*length(J.x))
 # function Base.Array(J::LazyJac)
@@ -12,7 +12,7 @@ Base.size(J::LazyJac) = (length(J.bi), length(J.bi)*length(J.x))
 #     return BlockDiagonal(J.bi .* X) |> Array
 # end
 
-function Base.:*(A::LinearAlgebra.Adjoint{T, Vector{T}}, J::LazyJac{T}) where T
+function Base.:*(A::LinearAlgebra.Adjoint{T, <:AbstractVector{T}}, J::LazyJac{T}) where T
     s = sum(J.bi)
     m = length(J.x)
     n = length(J.bi)
@@ -28,7 +28,7 @@ function Base.:*(A::LinearAlgebra.Adjoint{T, Vector{T}}, J::LazyJac{T}) where T
     )
 end
 
-function Base.:*(A::LinearAlgebra.Adjoint{T, Matrix{T}}, J::LazyJac{T}) where T
+function Base.:*(A::LinearAlgebra.Adjoint{T, <:AbstractMatrix{T}}, J::LazyJac{T}) where T
     @warn "Computing MJPs instead of VJPs uses a lot of memory and is not optimized!"
     z = zero(J.x)
     out = Array{T}(undef, size(A, 1), length(J.bi), length(J.x))
