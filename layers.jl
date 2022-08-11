@@ -40,11 +40,55 @@ if @isdefined MtlArray
 	MtlArray(l::ResidualLayer) = Layer(MtlArray(l.W), MtlArray(l.b), l.eta, l.activation)
 end
 
-function (ls::Vector{<:AbstractNetworkLayer{T}})(x::AbstractVector{T}) where T
-	for l in ls
-		x = l(x)
+struct Network{T<:Real,N}
+	layers::Tuple{Vararg{<:AbstractNetworkLayer{T},N}}
+	in_dim
+	out_dim
+	hidden_dim
+end
+function FeedforwardNetwork(
+		in_dim::Int, 
+		hidden_dim::Int, 
+		out_dim::Int,
+		n_layers::Int,
+		final_activation::Bool = false
+	) where T
+	n_layers < 2 && error("Need at least two layers!")
+	Network((
+		Layer(in_dim=>hidden_dim),
+		[
+			Layer(hidden_dim=>hidden_dim) 
+			for _ in 1:n_layers-2
+		]...,
+		Layer(hidden_dim=>out_dim, final_activation)
+	), in_dim, out_dim, hidden_dim)
+end
+Base.length(nn::Network{T,N}) where {T,N} = N
+
+function ResidualNetwork(
+		in_dim::Int, 
+		hidden_dim::Int, 
+		out_dim::Int,
+		n_layers::Int,
+		final_activation::Bool = false
+	) where T
+	n_layers < 2 && error("Need at least two layers!")
+	Network((
+		Layer(in_dim=>hidden_dim),
+		[
+			ResidualLayer(hidden_dim=>hidden_dim) 
+			for _ in 1:n_layers-2
+		]...,
+		Layer(hidden_dim=>out_dim, final_activation)
+	), in_dim, out_dim, hidden_dim)
+end
+
+function (nn::Network{T,N})(x::AbstractVector{T}) where {T,N}
+	ŷ = nn.layers[1](x)
+	for i in 2:N-1
+		ŷ .= nn.layers[i](ŷ)
 	end
-	return x
+	return nn.layers[N](ŷ)
 end
 
 # SSE loss

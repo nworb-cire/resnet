@@ -39,14 +39,15 @@ class FeedForward(nn.Module):
 
 
 @profile
-def train_single(model, loss_fn, optimizer):
+def train_single(model, loss_fn, optimizer, x, y):
     loss = loss_fn(model(x), y)
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-x = torch.randn(in_dim)
-y = torch.randn(out_dim)
+N = 4
+xs = [torch.randn(in_dim) for _ in range(N)]
+ys = [torch.randn(out_dim) for _ in range(N)]
 
 # from timeit import timeit
 # num_runs = 1000

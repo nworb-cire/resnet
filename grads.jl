@@ -14,7 +14,6 @@ function ∂∂W(l::AbstractNetworkLayer{T}, x::AbstractVector{T}) where T
 	nout = length(l.b)
 	X = Iterators.repeated(x', nout) |> collect
 	bi = _∂∂b(l,x)
-	bi, x
     @warn "This operation is very slow and memory intensive! Please use lazy jacobians."
 	return BlockDiagonal(bi .* X) |> Array
 end
@@ -32,12 +31,13 @@ end
 ∂∂b(ξ::AbstractVector{T}, bi::BoolVector) where T = typeof(ξ)(bi)
 
 # Passthrough jacobians
-∂∂ξ(l::Layer{T}, x::AbstractVector{T}) where T = _∂∂b(l,x) .* l.W'
-∂∂ξ(l::ResidualLayer{T}, x::AbstractVector{T}) where T = l.eta*I(length(x)) .+ (_∂∂b(l,x) .* l.W')
-∂∂ξ(l::Layer{T}, bi::BoolVector) where T = ∂∂ξ(l.W, bi)
 ∂∂ξ(W::Matrix{T}, bi::BoolVector) where T = bi .* W'  # TODO: LazyJac?
-∂∂ξ(l::ResidualLayer{T}, bi::BoolVector) where T = ∂∂ξ(l.W, l.eta, bi)
+∂∂ξ(l::Layer{T}, bi::BoolVector) where T = ∂∂ξ(l.W, bi)
+∂∂ξ(l::Layer{T}, x::AbstractVector{T}) where T = ∂∂ξ(l.W, _∂∂b(l,x))
+
 ∂∂ξ(W::Matrix{T}, η::T, bi::BoolVector) where T = η*I(length(bi)) .+ bi .* W'
+∂∂ξ(l::ResidualLayer{T}, bi::BoolVector) where T = ∂∂ξ(l.W, l.eta, bi)
+∂∂ξ(l::ResidualLayer{T}, x::AbstractVector{T}) where T = ∂∂ξ(l.W, l.eta, _∂∂b(l,x))
 
 # Cost jacobian
 #  TODO: Allow specification of loss function
