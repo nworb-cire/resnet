@@ -78,12 +78,12 @@ end
 end
 
 @testset "lazy feedforward weight gradients" begin
-    @test ∂C∂(test_network(x), y)*∂∂ξ(L2, L1(x))*LazyJac(x, _∂∂b(L1, x)) ≈ gradient(L1.W) do W
+    @test Array(∂C∂(test_network(x), y)*∂∂ξ(L2, L1(x))*LazyJac(x, _∂∂b(L1, x))) ≈ gradient(L1.W) do W
         ŷ = muladd(W',x,L1.b)
         ŷ = ifelse(L1.activation, relu.(ŷ), ŷ)
         C(L2(ŷ), y)
     end[1]
-    @test ∂C∂(test_network(x), y)*LazyJac(L1(x), _∂∂b(L2, L1(x))) ≈ gradient(L2.W) do W
+    @test Array(∂C∂(test_network(x), y)*LazyJac(L1(x), _∂∂b(L2, L1(x)))) ≈ gradient(L2.W) do W
         ŷ = muladd(W',L1(x),L2.b)
         ŷ = ifelse(L2.activation, relu.(ŷ), ŷ)
         C(ŷ, y)
@@ -119,18 +119,18 @@ end
 end
 
 @testset "lazy residual weight gradients" begin
-    @test ∂C∂(test_residual_network(x), y)*∂∂ξ(L2, R1(L1(x)))*∂∂ξ(R1, L1(x))*LazyJac(x, _∂∂b(L1, x)) ≈ gradient(L1.W) do W
+    @test Array(∂C∂(test_residual_network(x), y)*∂∂ξ(L2, R1(L1(x)))*∂∂ξ(R1, L1(x))*LazyJac(x, _∂∂b(L1, x))) ≈ gradient(L1.W) do W
         ŷ = muladd(W',x,L1.b)
         ŷ = ifelse(L1.activation, relu.(ŷ), ŷ)
         C(L2(R1(ŷ)), y)
     end[1]
-    @test ∂C∂(test_residual_network(x), y)*∂∂ξ(L2, R1(L1(x)))*LazyJac(L1(x), _∂∂b(R1, L1(x))) ≈ gradient(R1.W) do W
+    @test Array(∂C∂(test_residual_network(x), y)*∂∂ξ(L2, R1(L1(x)))*LazyJac(L1(x), _∂∂b(R1, L1(x)))) ≈ gradient(R1.W) do W
         ŷ = muladd(W',L1(x),R1.b)
         ŷ = ifelse(R1.activation, relu.(ŷ), ŷ)
         ŷ = R1.eta*L1(x) + ŷ
         C(L2(ŷ), y)
     end[1]
-    @test ∂C∂(test_residual_network(x), y)*LazyJac(R1(L1(x)), _∂∂b(L2, R1(L1(x)))) ≈ gradient(L2.W) do W
+    @test Array(∂C∂(test_residual_network(x), y)*LazyJac(R1(L1(x)), _∂∂b(L2, R1(L1(x))))) ≈ gradient(L2.W) do W
         ŷ = muladd(W',R1(L1(x)),L2.b)
         ŷ = ifelse(L2.activation, relu.(ŷ), ŷ)
         C(ŷ, y)

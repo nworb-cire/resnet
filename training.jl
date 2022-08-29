@@ -37,31 +37,35 @@ function reverse_opt!(
         normalize::Bool,
     ) where {T,N,O}
     any(isempty.(stacks)) && error("Stack is empty; did you run the forward pass?")
+    batchsize = length(stacks)
     Js = [∂C∂(ŷ, y) for (ŷ, y) in zip(ŷs, ys)]
     if normalize
-        @debug "Jacobian norm" norm(Js[1])
         Js ./= [√norm(J) for J in Js]  # √x brings x halfway to 1 in log space
-        @debug "Jacobian norm after scaling" norm(Js[1])
+        @debug "Jacobian norm" original=norm(Js[1])^2 scaled=norm(Js[1])
     end
     for (i, (l, (optW,optb))) in enumerate(zip(reverse(nn.layers), reverse(opts)))
         vals = pop!.(stacks)
-        @debug "Jacobian norms layer $(length(layers)-i+1):" J=norm(Js[1]) ∂∂ξ=norm(∂∂ξ(l, vals[1][:bi]))
-        ∇Wₗ = mean(tmap(zip(Js, vals)) do (J, (ξ, bi, _))
-            J*LazyJac(ξ, bi)
-        end)  # TODO: Mean accum takes a lot of time
-        ΔW = apply!(optW, l.W, ∇Wₗ)
-        @inbounds l.W .= l.W - ΔW
+        @debug "Jacobian norms layer $(length(nn.layers)-i+1):" J=norm(Js[1]) ∂∂ξ=norm(∂∂ξ(l, vals[1][:bi]))
+        any(any(isnan.(J)) for J in Js) && error("NaN encountered")
+        ∇Wₗ = nothing
+        for (J, (ξ, bi, _)) in zip(Js, vals)
+            addto!(∇Wₗ, J*LazyJac(ξ, bi))
+        end
+        addto!(l.W, ∇Wₗ, -1f-5)  # TODO: Optimizers
         ∇bₗ = mean(tmap(zip(Js, vals)) do (J, (ξ, bi, _))
             # TODO: Combine loops
             J'.*∂∂b(ξ, bi)
         end)
-        @inbounds l.b .= l.b - apply!(optb, l.b, ∇bₗ)
+        @turbo l.b .= l.b - apply!(optb, l.b, ∇bₗ)
 
-        if i < N
+        if !isempty(first(stacks))
             Js = [  # Skip jacobian computation on last layer
-                J*∂∂ξ(l, bi)  # TODO: LazyJac?
+                @turbo J*∂∂ξ(l, bi)  # TODO: LazyJac?
                 for (J, (_, bi, _)) in zip(Js, vals)
             ]
+            if normalize
+                Js ./= [√norm(J) for J in Js]
+            end
         end
     end
 end

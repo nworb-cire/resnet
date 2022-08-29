@@ -29,14 +29,14 @@ function _grads(ls::NTuple{2,Layer{T}}, x::Vector{T}, y::Vector{T}) where T
     
     J1 = ∂C∂(y2, y)
     
-    ∇2 = J1*LazyJac(y1, _∂∂b(L2, y1))
+    ∇2 = Array(J1*LazyJac(y1, _∂∂b(L2, y1)))
     ∇2 = reshape(∇2, size(L2.W))
     ∇b2 = J1'.*∂∂b(L2, y1)
     
     J2 = ∂∂ξ(L2, y1)
     J1J2 = J1*J2
     
-    ∇1 = J1J2*LazyJac(x, _∂∂b(L1, x))
+    ∇1 = Array(J1J2*LazyJac(x, _∂∂b(L1, x)))
     ∇1 = reshape(∇1, size(L1.W))
     ∇b1 = J1J2'.*∂∂b(L1, x)
 

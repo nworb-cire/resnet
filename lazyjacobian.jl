@@ -1,5 +1,6 @@
 import LinearAlgebra
 using SparseArrays
+include("sparse.jl")
 
 struct LazyJac{T<:Real}# <: AbstractMatrix
     x::AbstractVector{T}
@@ -13,19 +14,7 @@ Base.size(J::LazyJac) = (length(J.bi), length(J.bi)*length(J.x))
 # end
 
 function Base.:*(A::LinearAlgebra.Adjoint{T, <:AbstractVector{T}}, J::LazyJac{T}) where T
-    s = sum(J.bi)
-    m = length(J.x)
-    n = length(J.bi)
-    s == 0 && return spzeros(m, n)
-
-    colptr = Vector{Int}(undef, n+1)
-    colptr[1] = 1
-    @inbounds colptr[2:end] .= 1 .+ cumsum(m*J.bi)
-    rowval = repeat(1:m, s)
-
-    return SparseMatrixCSC(
-        m, n, colptr, rowval, vec(J.x*(A[J.bi])')
-    )
+    SparseColumn(J.x, A', J.bi)
 end
 
 function Base.:*(A::LinearAlgebra.Adjoint{T, <:AbstractMatrix{T}}, J::LazyJac{T}) where T

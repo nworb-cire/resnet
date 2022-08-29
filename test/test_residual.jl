@@ -32,19 +32,19 @@ function _grads(ls::Tuple{Vararg{<:AbstractNetworkLayer{T},3}}, x::Vector{T}, y:
     
     J1 = ∂C∂(y3, y)
     
-    ∇3 = J1*LazyJac(y2, _∂∂b(L2, y2))
+    ∇3 = Array(J1*LazyJac(y2, _∂∂b(L2, y2)))
     ∇b3 = J1'.*∂∂b(L2, y2)
     
     J2 = ∂∂ξ(L2, y2)
     J1J2 = J1*J2
 
-    ∇2 = J1J2*LazyJac(y1, _∂∂b(R1, y1))
+    ∇2 = Array(J1J2*LazyJac(y1, _∂∂b(R1, y1)))
     ∇b2 = J1J2'.*∂∂b(R1, y2)
 
     J3 = ∂∂ξ(R1, y1)
     J1J2J3 = J1J2*J3
     
-    ∇1 = J1J2J3*LazyJac(x, _∂∂b(L1, x))
+    ∇1 = Array(J1J2J3*LazyJac(x, _∂∂b(L1, x)))
     ∇b1 = J1J2J3'.*∂∂b(L1, x)
 
     (∇1, ∇b1, ∇2, ∇b2, ∇3, ∇b3)
@@ -96,6 +96,5 @@ end;
     baseline_loss = mean(C(test_residual_network(x), y) for (x,y) in zip(xs,ys))
     for _ in 1:100 train_batch!(test_residual_network, xs, ys, opts) end
     final_loss = mean(C(test_residual_network(x), y) for (x,y) in zip(xs,ys))
-    @show final_loss, baseline_loss
     @test final_loss < baseline_loss
 end;
